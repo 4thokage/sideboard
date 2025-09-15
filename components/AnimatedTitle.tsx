@@ -9,7 +9,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-const AnimatedTitle = () => {
+interface AnimatedTitleProps {
+  text?: string; 
+}
+
+const AnimatedTitle = ({ title = 'Sideboard' }: AnimatedTitleProps) => {
   const animation = useSharedValue(0);
   const theme = useTheme(); 
 
@@ -23,7 +27,7 @@ const AnimatedTitle = () => {
       -1,
       true
     );
-  }, []);
+  }, [animation]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -38,7 +42,7 @@ const AnimatedTitle = () => {
   return (
     <View style={styles.container}>
       <Animated.Text  style={[{ color: theme.colors.onBackground, fontSize: 48, fontWeight: 'bold' }, animatedStyle]}>
-        Sideboard
+        {title}
       </Animated.Text>
     </View>
   );

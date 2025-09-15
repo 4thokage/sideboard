@@ -1,5 +1,5 @@
 import StaticTitle from '@/components/static-title';
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import {
   IconButton,
@@ -8,14 +8,22 @@ import {
   Text, useTheme
 } from 'react-native-paper';
 
-const Title = () => {
-  if (Platform.OS === 'web') {
+const AnimatedTitle = Platform.OS !== 'web'
+  ? React.lazy(() => import('@/components/AnimatedTitle'))
+  : null;
+
+function Title() {
+  // Always render StaticTitle on web
+  if (Platform.OS === 'web' || !AnimatedTitle) {
     return <StaticTitle />;
   }
 
-  const AnimatedTitle = require('@/components/animated-title').default;
-  return <AnimatedTitle />;
-};
+  return (
+    <Suspense fallback={<StaticTitle />}>
+      <AnimatedTitle />
+    </Suspense>
+  );
+}
 
 
 const HomeScreen = () => {
@@ -29,7 +37,6 @@ const HomeScreen = () => {
   return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <View style={styles.titleRow}>
-
           <Title/>
 
           <IconButton

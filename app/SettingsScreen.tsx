@@ -1,3 +1,4 @@
+import CardSourcesSection from '@/components/ui/CardSourcesSection';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
@@ -18,8 +19,6 @@ type SettingsScreenProps = {
 const SettingsScreen = ({ onClose, isDark, setIsDark }: SettingsScreenProps) => {
   const theme = useTheme();
   const toggleTheme = () => setIsDark(!isDark);
-
-  const [checked, setChecked] = React.useState(false);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -42,34 +41,13 @@ const SettingsScreen = ({ onClose, isDark, setIsDark }: SettingsScreenProps) => 
       </List.Section>
 
       <Divider />
-{/*
+
       <List.Section title="Card Sources">
-        <List.Item
-          title="MTG"
-          description="MtgJson"
-          right={() => (
-          <Checkbox
-            status={checked ? 'checked' : 'unchecked'}
-            onPress={() => {
-              setChecked(!checked);
-            }}
-          />
-          )}
-        />
-        <Button
-          icon="download-multiple"
-          mode="contained"
-          onPress={() => console.log('Start MTG collection')}
-          buttonColor={theme.colors.primary}
-          textColor={theme.colors.onPrimary}
-        >
-          Download
-        </Button>
+        <CardSourcesSection/>
       </List.Section>
 
       <Divider />
 
-       Add more counter settings and collection settings */}
     </View>
   );
 };

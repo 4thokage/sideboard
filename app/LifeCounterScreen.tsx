@@ -84,27 +84,6 @@ const LifeCounterScreen = ({ players, initialLife }: LifeCounterScreenProps) => 
     theme.colors.error,
   ];
 
-  // This function applies the batched life change to the player's life and pushes to history
-  const applyLifeChange = (playerId: number, deltaSum: number) => {
-    setPlayerStates(prevPlayers =>
-      prevPlayers.map(p => {
-        if (p.id === playerId) {
-          const newLife = p.life + deltaSum;
-          const newHistoryEntry: LifeChange = {
-            timestamp: Date.now(),
-            delta: deltaSum,
-            total: newLife,
-          };
-          return {
-            ...p,
-            life: newLife,
-            history: [newHistoryEntry, ...p.history], // newest first
-          };
-        }
-        return p;
-      })
-    );
-  };
 
 const updateLife = (playerId: number, delta: number) => {
   // Immediately update the life total in state (for UI responsiveness)

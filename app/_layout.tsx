@@ -1,10 +1,11 @@
 import { useBackToTabsOnSettingsScreen } from '@/hooks/use-back-to-tabs';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMaterial3Theme } from '@pchmn/expo-material3-theme';
+import { useFonts } from 'expo-font';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
 import { BottomNavigation, MD3DarkTheme, MD3LightTheme, PaperProvider } from 'react-native-paper';
 
 
@@ -17,16 +18,32 @@ import HomeScreen from './index';
 import LifeCounterScreen from './LifeCounterScreen';
 import SettingsScreen from './SettingsScreen';
 
+
+// === Routes ===
+const routes = [
+  { key: 'home', title: 'Home', icon: 'home' },
+  // { key: 'collection', title: 'Collection', icon: 'cards' },
+  {
+    key: 'counter',
+    title: 'Life Counter',
+    icon: 'account-multiple-plus',
+  },
+];
+
 export default function RootLayout() {
+  useFonts({
+    ...MaterialCommunityIcons.font,
+  });
 
   // === Theme & color scheme ===
   const systemScheme = useColorScheme();
   const [isDark, setIsDark] = useState(systemScheme === 'dark');
   const { theme } = useMaterial3Theme();
 
-  const paperTheme = isDark
-    ? { ...MD3DarkTheme, colors: theme.dark }
-    : { ...MD3LightTheme, colors: theme.light };
+  const paperTheme = useMemo(
+    () => (isDark ? { ...MD3DarkTheme, colors: theme.dark } : { ...MD3LightTheme, colors: theme.light }),
+    [isDark, theme]
+  );
 
   // === Navigation State ===
   const [index, setIndex] = useState(0);
@@ -39,16 +56,7 @@ export default function RootLayout() {
   // === Modal ===
   const [showCounterSettingsModal, setShowCounterSettingsModal] = useState(false);
 
-  // === Routes ===
-  const routes = [
-    { key: 'home', title: 'Home', icon: 'home' },
-    // { key: 'collection', title: 'Collection', icon: 'cards' },
-    {
-      key: 'counter',
-      title: 'Life Counter',
-      icon: 'account-multiple-plus',
-    },
-  ];
+
 
   // === Render Scenes ===
   useBackToTabsOnSettingsScreen(screen === 'settings', () => setScreen('tabs'));
@@ -86,7 +94,7 @@ export default function RootLayout() {
       setIndex(newIndex);
       setScreen('tabs');
     },
-    [index, routes]
+    []
   );
 
   const onTabLongPress = useCallback(
