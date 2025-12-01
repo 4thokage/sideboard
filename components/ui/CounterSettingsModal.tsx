@@ -12,12 +12,12 @@ import {
   useTheme,
 } from 'react-native-paper';
 
-import { GAME_TYPE_DEFAULTS, GAME_TYPES, GameType, MAX_LIFE, MAX_PLAYERS, MIN_LIFE, MIN_PLAYERS, STORAGE_KEYS } from '@/constants/storage';
+import { GAME_TYPE_DEFAULTS, GAME_TYPES, GameSettings, GameType, MAX_LIFE, MAX_PLAYERS, MIN_LIFE, MIN_PLAYERS, STORAGE_KEYS } from '@/constants/storage';
 
 type Props = {
   visible: boolean;
   onDismiss: () => void;
-  onStart: (settings: { players: number; life: number; gameType: string }) => void;
+  onStart: (settings: GameSettings) => void;
 };
 
 export default function CounterSettingsModal({ visible, onDismiss, onStart }: Props) {

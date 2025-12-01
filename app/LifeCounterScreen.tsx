@@ -1,9 +1,10 @@
 import PlayerModal, { LifeChange } from '@/components/ui/PlayerModal';
 import { STORAGE_KEYS } from '@/constants/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
-import { Dimensions, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Surface, Text, useTheme } from 'react-native-paper';
+import { Animated, Dimensions, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Button, Surface, Text, useTheme } from 'react-native-paper';
 
 type Player = {
   id: number;
@@ -39,24 +40,19 @@ const loadGame = async (): Promise<Player[] | null> => {
 const LifeCounterScreen = ({ players, initialLife }: LifeCounterScreenProps) => {
   const theme = useTheme();
   const [playerStates, setPlayerStates] = useState<Player[]>([]);
-
-  // Modal state
   const [playerModal, setPlayerModal] = useState<{ visible: boolean; playerId: number | null }>({
     visible: false,
     playerId: null,
   });
 
-  // Ref to store pending life changes per player for debouncing/grouping
-  // { [playerId]: { deltaSum, timer } }
   const pendingLifeChanges = useRef<Record<number, { deltaSum: number; timer: ReturnType<typeof setTimeout> | null }>>({});
+  const deltaAnimRefs = useRef<Record<number, Animated.Value>>({});
 
-  // Initialize players or load saved game
   useEffect(() => {
     const init = async () => {
       const saved = await loadGame();
-      if (saved) {
-        setPlayerStates(saved);
-      } else {
+      if (saved) setPlayerStates(saved);
+      else {
         const initialPlayers = Array.from({ length: players }, (_, i) => ({
           id: i + 1,
           life: initialLife,
@@ -68,11 +64,8 @@ const LifeCounterScreen = ({ players, initialLife }: LifeCounterScreenProps) => 
     init();
   }, [players, initialLife]);
 
-  // Save game on playerStates change
   useEffect(() => {
-    if (playerStates.length > 0) {
-      saveGame(playerStates);
-    }
+    if (playerStates.length > 0) saveGame(playerStates);
   }, [playerStates]);
 
   const colorPalette = [
@@ -84,68 +77,47 @@ const LifeCounterScreen = ({ players, initialLife }: LifeCounterScreenProps) => 
     theme.colors.error,
   ];
 
+  const updateLife = (playerId: number, delta: number) => {
+    Haptics.selectionAsync();
 
-const updateLife = (playerId: number, delta: number) => {
-  // Immediately update the life total in state (for UI responsiveness)
-  setPlayerStates(prevPlayers =>
-    prevPlayers.map(p => (p.id === playerId ? { ...p, life: p.life + delta } : p))
-  );
+    if (!deltaAnimRefs.current[playerId]) deltaAnimRefs.current[playerId] = new Animated.Value(0);
+    deltaAnimRefs.current[playerId].setValue(delta > 0 ? 1 : -1);
 
-  // Setup or update pending life changes for history grouping
-  if (!pendingLifeChanges.current[playerId]) {
-    pendingLifeChanges.current[playerId] = { deltaSum: 0, timer: null };
-  }
+    Animated.timing(deltaAnimRefs.current[playerId], {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
 
-  // Add delta to sum
-  pendingLifeChanges.current[playerId].deltaSum += delta;
-
-  // Clear existing timer if any
-  if (pendingLifeChanges.current[playerId].timer) {
-    clearTimeout(pendingLifeChanges.current[playerId].timer!);
-  }
-
-  // Set new timer to flush history entry after 1 second of inactivity
-  pendingLifeChanges.current[playerId].timer = setTimeout(() => {
-    const deltaSum = pendingLifeChanges.current[playerId].deltaSum;
-
-    // Update history with accumulated deltaSum and current life total
-    setPlayerStates(prevPlayers =>
-      prevPlayers.map(p => {
-        if (p.id === playerId) {
-          const newLife = p.life; // life already updated above
-
-          const newEntry: LifeChange = {
-            timestamp: Date.now(),
-            delta: deltaSum,
-            total: newLife,
-          };
-          return {
-            ...p,
-            history: [newEntry, ...p.history],
-          };
-        }
-        return p;
-      })
+    setPlayerStates(prev =>
+      prev.map(p => (p.id === playerId ? { ...p, life: p.life + delta } : p))
     );
 
-    // Reset pending changes
-    pendingLifeChanges.current[playerId] = { deltaSum: 0, timer: null };
-  }, 1000);
-};
+    if (!pendingLifeChanges.current[playerId]) pendingLifeChanges.current[playerId] = { deltaSum: 0, timer: null };
+    pendingLifeChanges.current[playerId].deltaSum += delta;
 
+    if (pendingLifeChanges.current[playerId].timer) clearTimeout(pendingLifeChanges.current[playerId].timer!);
 
-  // Detect tap location to increment or decrement life
+    pendingLifeChanges.current[playerId].timer = setTimeout(() => {
+      const deltaSum = pendingLifeChanges.current[playerId].deltaSum;
+      setPlayerStates(prev =>
+        prev.map(p => {
+          if (p.id === playerId) {
+            const newEntry: LifeChange = { timestamp: Date.now(), delta: deltaSum, total: p.life };
+            return { ...p, history: [newEntry, ...p.history] };
+          }
+          return p;
+        })
+      );
+      pendingLifeChanges.current[playerId] = { deltaSum: 0, timer: null };
+    }, 1000);
+  };
+
   const handleCardPress = (event: any, playerId: number) => {
     const { locationX, pageX } = event.nativeEvent;
     const screenWidth = Dimensions.get('window').width;
-    const halfWidth = screenWidth / 2;
-
     const x = locationX ?? pageX;
-    if (x < halfWidth) {
-      updateLife(playerId, -1);
-    } else {
-      updateLife(playerId, 1);
-    }
+    updateLife(playerId, x < screenWidth / 2 ? -1 : 1);
   };
 
   return (
@@ -164,10 +136,47 @@ const updateLife = (playerId: number, delta: number) => {
           >
             <View style={styles.centeredContent}>
               <Text style={styles.lifeTotal}>{player.life}</Text>
+              {deltaAnimRefs.current[player.id] && (
+                <Animated.Text
+                  style={{
+                    position: 'absolute',
+                    top: 10,
+                    fontSize: 28,
+                    fontWeight: 'bold',
+                    color: 'white',
+                    transform: [
+                      {
+                        translateY: deltaAnimRefs.current[player.id].interpolate({
+                          inputRange: [-1, 1],
+                          outputRange: [10, -10],
+                        }),
+                      },
+                    ],
+                    opacity: deltaAnimRefs.current[player.id].interpolate({
+                      inputRange: [-1, 0, 1],
+                      outputRange: [0.8, 0, 0.8],
+                    }),
+                  }}
+                >
+                  {pendingLifeChanges.current[player.id]?.deltaSum > 0
+                    ? `+${pendingLifeChanges.current[player.id]?.deltaSum}`
+                    : pendingLifeChanges.current[player.id]?.deltaSum}
+                </Animated.Text>
+              )}
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+              <Button mode="contained" onPress={() => updateLife(player.id, -1)}>
+                -1
+              </Button>
+              <Button mode="contained" onPress={() => updateLife(player.id, 1)}>
+                +1
+              </Button>
             </View>
           </Surface>
         </TouchableOpacity>
       ))}
+
       {playerModal.visible && (
         <PlayerModal
           visible={playerModal.visible}
@@ -183,30 +192,9 @@ const updateLife = (playerId: number, delta: number) => {
 export default LifeCounterScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  touchWrapper: {
-    flex: 1,
-    marginHorizontal: 10,
-  },
-  playerCard: {
-    flex: 1,
-    borderRadius: 12,
-    justifyContent: 'space-between',
-    padding: 20,
-  },
-  centeredContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  lifeTotal: {
-    fontSize: 64,
-    fontWeight: 'bold',
-    color: 'white',
-    textAlign: 'center',
-  },
+  container: { flex: 1, paddingVertical: 10, gap: 10 },
+  touchWrapper: { flex: 1, marginHorizontal: 10 },
+  playerCard: { flex: 1, borderRadius: 12, justifyContent: 'space-between', padding: 20 },
+  centeredContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  lifeTotal: { fontSize: 64, fontWeight: 'bold', color: 'white', textAlign: 'center' },
 });

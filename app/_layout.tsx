@@ -1,83 +1,94 @@
-import { useBackToTabsOnSettingsScreen } from '@/hooks/use-back-to-tabs';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useMaterial3Theme } from '@pchmn/expo-material3-theme';
-import { useFonts } from 'expo-font';
-import * as Haptics from 'expo-haptics';
-import { StatusBar } from 'expo-status-bar';
-import { useCallback, useMemo, useState } from 'react';
-import { BottomNavigation, MD3DarkTheme, MD3LightTheme, PaperProvider } from 'react-native-paper';
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { useFonts } from "expo-font";
+import * as Haptics from "expo-haptics";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useMemo, useState } from "react";
+import { BottomNavigation, MD3DarkTheme, MD3LightTheme, PaperProvider } from "react-native-paper";
 
+import { useBackToTabsOnSettingsScreen } from "@/hooks/use-back-to-tabs";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useMaterial3Theme } from "@pchmn/expo-material3-theme";
 
+import CounterSettingsModal from "@/components/ui/CounterSettingsModal";
+import { AppIconName, DEFAULT_GAME_SETTINGS, GameSettings } from "@/constants/storage";
 
-import CounterSettingsModal from '@/components/ui/CounterSettingsModal';
-import { DEFAULT_GAME_SETTINGS } from '@/constants/storage';
+import CollectionScreen from "./CollectionScreen";
+import HomeScreen from "./index";
+import LifeCounterScreen from "./LifeCounterScreen";
+import SearchScreen from "./SearchScreen";
+import SettingsScreen from "./SettingsScreen";
 
-import CollectionScreen from './CollectionScreen';
-import HomeScreen from './index';
-import LifeCounterScreen from './LifeCounterScreen';
-import SettingsScreen from './SettingsScreen';
+type AppRoute = {
+  key: string;
+  title: string;
+  icon: AppIconName;
+};
 
+type SceneProps = {
+  route: AppRoute;
+};
 
-// === Routes ===
-const routes = [
-  { key: 'home', title: 'Home', icon: 'home' },
-  // { key: 'collection', title: 'Collection', icon: 'cards' },
-  {
-    key: 'counter',
-    title: 'Life Counter',
-    icon: 'account-multiple-plus',
-  },
+// === App Routes ===
+const routes: AppRoute[] =  [
+  { key: "home", title: "Home", icon: "home" },
+  { key: "search", title: "Search", icon: "magnify" },
+  { key: "collection", title: "Collection", icon: "cards" },
+  { key: "counter", title: "Life Counter", icon: "account-multiple-plus" },
 ];
 
 export default function RootLayout() {
-  useFonts({
-    ...MaterialCommunityIcons.font,
-  });
+  useFonts({ ...MaterialCommunityIcons.font });
 
-  // === Theme & color scheme ===
+  // === Theme ===
   const systemScheme = useColorScheme();
-  const [isDark, setIsDark] = useState(systemScheme === 'dark');
+  const [isDark, setIsDark] = useState(systemScheme === "dark");
   const { theme } = useMaterial3Theme();
 
   const paperTheme = useMemo(
-    () => (isDark ? { ...MD3DarkTheme, colors: theme.dark } : { ...MD3LightTheme, colors: theme.light }),
+    () =>
+      isDark
+        ? { ...MD3DarkTheme, colors: theme.dark }
+        : { ...MD3LightTheme, colors: theme.light },
     [isDark, theme]
   );
 
-  // === Navigation State ===
+  // === App Navigation State ===
   const [index, setIndex] = useState(0);
-  const [screen, setScreen] = useState<'tabs' | 'settings'>('tabs');
+  const [screen, setScreen] = useState<"tabs" | "settings">("tabs");
 
-  // === Life Counter Settings & Reset ===
+  // === Life Counter Config ===
   const [lifeCounterSettings, setLifeCounterSettings] = useState(DEFAULT_GAME_SETTINGS);
   const [resetToken, setResetToken] = useState(0);
 
-  // === Modal ===
+  // === Modals ===
   const [showCounterSettingsModal, setShowCounterSettingsModal] = useState(false);
 
+  // Auto-return from settings via hardware back or gestures
+  useBackToTabsOnSettingsScreen(screen === "settings", () => setScreen("tabs"));
 
-
-  // === Render Scenes ===
-  useBackToTabsOnSettingsScreen(screen === 'settings', () => setScreen('tabs'));
-
+  // === Render Screens ===
   const renderScene = useCallback(
-    ({ route }: { route: { key: string } }) => {
+    ({ route }: SceneProps) => {
       switch (route.key) {
-        case 'home':
+        case "home":
           return <HomeScreen />;
-        case 'collection':
+
+        case "search":
+          return <SearchScreen />;
+
+        case "collection":
           return <CollectionScreen />;
-        case 'counter':
+
+        case "counter":
           return (
             <LifeCounterScreen
-              key={`${lifeCounterSettings.players}-${lifeCounterSettings.life}-${lifeCounterSettings.gameType}-${resetToken}`}
+              key={resetToken}
               players={lifeCounterSettings.players}
               initialLife={lifeCounterSettings.life}
               gameType={lifeCounterSettings.gameType}
-              resetToken={resetToken}
             />
           );
+
         default:
           return null;
       }
@@ -85,65 +96,58 @@ export default function RootLayout() {
     [lifeCounterSettings, resetToken]
   );
 
-  // === Bottom Navigation Handlers ===
-  const onTabPress = useCallback(
-    async ({ route }) => {
-      const newIndex = routes.findIndex((r) => r.key === route.key);
-      if (newIndex === -1) return;
+  // === Tab Press Handlers ===
+  const onTabPress = useCallback(({ route }: { route: AppRoute }) => {
+    const newIndex = routes.findIndex((r) => r.key === route.key);
+    if (newIndex < 0) return;
+    setIndex(newIndex);
+    setScreen("tabs");
+  }, []);
 
-      setIndex(newIndex);
-      setScreen('tabs');
-    },
-    []
-  );
+  const onTabLongPress = useCallback(({ route }: { route: AppRoute }) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-  const onTabLongPress = useCallback(
-    ({ route }) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      if (route.key === 'counter') {
-        setShowCounterSettingsModal(true);
-      }
-      if (route.key === 'home') {
-        setScreen('settings');
-      }
-    },
-    []
-  );
+    if (route.key === "counter") setShowCounterSettingsModal(true);
+    if (route.key === "home") setScreen("settings");
+  }, []);
 
   return (
     <PaperProvider theme={paperTheme}>
-      {screen === 'tabs' ? (
+      {screen === "tabs" ? (
         <>
           {renderScene({ route: routes[index] })}
+
           <BottomNavigation.Bar
             navigationState={{ index, routes }}
             onTabPress={onTabPress}
             onTabLongPress={onTabLongPress}
             renderIcon={({ route, color }) => (
-              <MaterialCommunityIcons name={route.icon} color={color} size={26} />
+              <MaterialCommunityIcons name={route.icon} size={26} color={color} />
             )}
             getLabelText={({ route }) => route.title}
           />
         </>
       ) : (
         <SettingsScreen
-          onClose={() => setScreen('tabs')}
+          onClose={() => setScreen("tabs")}
           isDark={isDark}
           setIsDark={setIsDark}
-          systemScheme={systemScheme}
+          systemScheme={systemScheme === "unspecified" ? null : systemScheme}
         />
       )}
 
+      {/* ===== Modals ===== */}
       <CounterSettingsModal
         visible={showCounterSettingsModal}
         onDismiss={() => setShowCounterSettingsModal(false)}
-        onStart={(settings) => {
+        onStart={(settings: GameSettings) => {
           setLifeCounterSettings(settings);
           setShowCounterSettingsModal(false);
-          setIndex(routes.findIndex((r) => r.key === 'counter'));
-          setResetToken((prev) => prev + 1);
+          setIndex(routes.findIndex((r) => r.key === "counter"));
+          setResetToken((t) => t + 1);
         }}
       />
+
       <StatusBar style="auto" />
     </PaperProvider>
   );

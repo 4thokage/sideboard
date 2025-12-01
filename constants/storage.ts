@@ -9,6 +9,19 @@ export const MAX_PLAYERS = 6;
 export const MIN_LIFE = 0;
 export const MAX_LIFE = 2_147_483_647;
 
+export type LifeChange = {
+  timestamp: number;
+  delta: number;
+  total: number;
+};
+
+export type Player = {
+  id: number;
+  life: number;
+  history: LifeChange[];
+  commanderDamage?: Record<number, number>;
+};
+
 // --- Game Types & Defaults ---
 
 export const GAME_TYPES = ['MTG', 'EDH', 'Lorcana',] as const;
@@ -34,3 +47,5 @@ export const DEFAULT_GAME_SETTINGS: GameSettings = {
   life: 20,
   gameType: 'MTG',
 };
+
+export type AppIconName = "home" | "magnify" | "account-multiple-plus" | "cards";
