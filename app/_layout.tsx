@@ -37,7 +37,9 @@ const routes: AppRoute[] =  [
 ];
 
 export default function RootLayout() {
-  useFonts({ ...MaterialCommunityIcons.font });
+  const [fontsLoaded] = useFonts({
+    ...MaterialCommunityIcons.font,
+  });
 
   // === Theme ===
   const systemScheme = useColorScheme();
